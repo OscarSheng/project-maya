@@ -30,6 +30,10 @@
 #include <vector>
 #if defined(_WIN32)
 #include <io.h>
+#define NOMINMAX
+#include <windows.h>
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
 #else
 #include <unistd.h>
 #include <cerrno>
@@ -631,6 +635,16 @@ int serve(strata::ds4::Model& m, const std::string& eos_list, bool spec, float c
 
 int main(int argc, char** argv) {
     strata::platform::env_aliases();   // (MAYA_* settings under their older names too)
+#if defined(_WIN32)
+    // Windows sleeps in 15.6 ms ticks unless a process asks for finer ones: the CPU lane's service thread naps
+    // (sleep_for 20 us) between tokens, and the device's first wait of the next token then waits out the tick.
+    // MAYA_DS4_TIMER_MS=0: leave the system's resolution alone.
+    {
+        const char* v = std::getenv("MAYA_DS4_TIMER_MS");
+        const int ms = v != nullptr ? std::atoi(v) : 1;
+        if (ms > 0) timeBeginPeriod((UINT) ms);
+    }
+#endif
     strata::ds4::Options o;
     std::string ids_s, dump, eos = "1";
     int n = 0, window = 16;
